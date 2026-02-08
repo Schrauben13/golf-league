@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { players } from "../lib/mockLeague";
+import { getPlayers } from "../lib/leagueRepo";
 
+export default async function PlayersPage() {
+  const players = await getPlayers();
 
-export default function PlayersPage() {
   return (
     <section className="space-y-4">
       <div className="space-y-2">
@@ -30,7 +31,7 @@ export default function PlayersPage() {
             </div>
             <div className="text-sm text-zinc-700">
               Handicap Index:{" "}
-              {player.handicapIndex !== undefined
+              {player.handicapIndex !== null && player.handicapIndex !== undefined
                 ? player.handicapIndex.toFixed(1)
                 : "N/A"}
             </div>

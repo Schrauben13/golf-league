@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { rounds } from "../lib/mockLeague";
+import { getRounds } from "../lib/leagueRepo";
 
-export default function RoundsPage() {
+export default async function RoundsPage() {
+  const rounds = await getRounds();
+
   return (
     <section className="space-y-4">
       <div className="space-y-2">
@@ -27,7 +29,9 @@ export default function RoundsPage() {
             <div className="text-base font-semibold text-zinc-900">
               Week {round.week}
             </div>
-            <div className="text-sm text-zinc-700">Date: {round.date}</div>
+            <div className="text-sm text-zinc-700">
+              Date: {round.date.toISOString().slice(0, 10)}
+            </div>
           </Link>
         ))}
       </div>

@@ -2,7 +2,30 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { players, rounds, scores } from "../../lib/mockLeague";
+import { useEffect, useMemo, useState } from "react";
+
+type Player = {
+  id: string;
+  name: string;
+  email: string | null;
+  handicapIndex: number | null;
+};
+
+type RecentScore = {
+  id: string;
+  gross: number;
+  net: number | null;
+  round: {
+    id: string;
+    week: number;
+    date: string;
+  };
+};
+
+type PlayerResponse = {
+  player: Player;
+  recentScores: RecentScore[];
+};
 
 export default function PlayerPage() {
   const params = useParams();
@@ -36,7 +59,95 @@ export default function PlayerPage() {
     );
   }
 
-  const player = players.find((entry) => entry.id === id);
+  const [data, setData] = useState<PlayerResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    setLoading(true);
+    setError(null);
+
+    fetch(`/api/players/${id}`)
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(payload?.error ?? "Unable to load player");
+        }
+        return response.json() as Promise<PlayerResponse>;
+      })
+      .then((payload) => {
+        if (isActive) {
+          setData(payload);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isActive) {
+          setError(err instanceof Error ? err.message : "Unable to load player");
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
+
+  const recentRounds = useMemo(
+    () =>
+      data?.recentScores.map((score) => ({
+        roundId: score.round.id,
+        week: score.round.week,
+        date: new Date(score.round.date).toISOString().slice(0, 10),
+        gross: score.gross,
+        net: score.net,
+      })) ?? [],
+    [data]
+  );
+
+  if (loading) {
+    return (
+      <section className="space-y-4">
+        <h1
+          className="text-3xl font-semibold"
+          style={{ color: "var(--augusta-green)" }}
+        >
+          Loading player...
+        </h1>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="space-y-4">
+        <h1
+          className="text-3xl font-semibold"
+          style={{ color: "var(--augusta-green)" }}
+        >
+          Player Not Found
+        </h1>
+        <p className="text-base text-zinc-700">{error}</p>
+        <Link
+          href="/players"
+          className="text-sm font-semibold"
+          style={{ color: "var(--augusta-green)" }}
+        >
+          Back to Players
+        </Link>
+      </section>
+    );
+  }
+
+  const player = data?.player;
 
   if (!player) {
     return (
@@ -62,24 +173,6 @@ export default function PlayerPage() {
     );
   }
 
-  const recentRounds = rounds
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 3)
-    .map((round) => {
-      const score = scores.find(
-        (entry) => entry.roundId === round.id && entry.playerId === player.id
-      );
-
-      return {
-        roundId: round.id,
-        week: round.week,
-        date: round.date,
-        gross: score?.gross ?? null,
-        net: score?.net ?? null,
-      };
-    });
-
   return (
     <section className="space-y-5">
       <div className="space-y-2">
@@ -94,7 +187,7 @@ export default function PlayerPage() {
         </div>
         <div className="text-sm text-zinc-700">
           Handicap Index:{" "}
-          {player.handicapIndex !== undefined
+          {player.handicapIndex !== null && player.handicapIndex !== undefined
             ? player.handicapIndex.toFixed(1)
             : "N/A"}
         </div>
